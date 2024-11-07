@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Users, UserPlus, ClipboardList, LayoutDashboard, GraduationCap, FileText, Settings, LogOut, Shield, UserCircle, X } from 'lucide-react';
 import { useAppState } from '../context/AppStateContext';
 import { useAuth } from '../context/AuthContext';
@@ -65,7 +65,7 @@ export default function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const menuItems = getMenuItems();
 
   return (
-    <div className="bg-sidebar text-white w-64 min-h-screen p-4 flex flex-col relative">
+    <div className="bg-sidebar text-white w-72 h-full flex flex-col relative">
       {/* Mobile close button */}
       {onCloseMobileMenu && (
         <button
@@ -76,7 +76,7 @@ export default function Sidebar({ onCloseMobileMenu }: SidebarProps) {
         </button>
       )}
 
-      <div className="flex flex-col items-center gap-2 mb-8 mt-4">
+      <div className="flex flex-col items-center gap-4 p-8 border-b border-gray-700/50">
         {dashboardSettings?.logoUrl ? (
           <img 
             src={dashboardSettings.logoUrl} 
@@ -86,22 +86,24 @@ export default function Sidebar({ onCloseMobileMenu }: SidebarProps) {
         ) : (
           <Users className="w-12 h-12" />
         )}
-        <h1 className="text-xl font-bold text-center">{dashboardSettings?.name || 'Sports Academy'}</h1>
-        {user && (
-          <div className="text-sm text-gray-300 text-center">
-            <div>{user.name}</div>
-            <div className="text-xs text-gray-400 capitalize">({user.role})</div>
-          </div>
-        )}
+        <div className="text-center">
+          <h1 className="text-xl font-bold">{dashboardSettings?.name || 'Sports Academy'}</h1>
+          {user && (
+            <div className="mt-2">
+              <div className="font-medium">{user.name}</div>
+              <div className="text-sm text-gray-400 capitalize">({user.role})</div>
+            </div>
+          )}
+        </div>
       </div>
       
-      <nav className="flex-1 space-y-1">
+      <nav className="flex-1 p-6 space-y-2">
         {menuItems.map((item) => (
           <Link
             key={item.id}
             to={item.path}
             onClick={onCloseMobileMenu}
-            className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors ${
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-colors ${
               currentPath === item.path
                 ? 'bg-primary text-white'
                 : 'text-gray-300 hover:bg-secondary'
@@ -113,13 +115,15 @@ export default function Sidebar({ onCloseMobileMenu }: SidebarProps) {
         ))}
       </nav>
 
-      <button
-        onClick={handleLogout}
-        className="flex items-center gap-3 p-3 text-gray-300 hover:bg-red-600 hover:text-white rounded-lg mt-4 transition-colors"
-      >
-        <LogOut className="w-5 h-5" />
-        Logout
-      </button>
+      <div className="p-6 border-t border-gray-700/50">
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 w-full px-4 py-3 text-gray-300 hover:bg-red-600 hover:text-white rounded-xl transition-colors"
+        >
+          <LogOut className="w-5 h-5" />
+          Logout
+        </button>
+      </div>
     </div>
   );
 }
