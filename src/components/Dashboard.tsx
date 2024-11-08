@@ -5,92 +5,34 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '../firebase';
 import FinancialForecast from './stats/FinancialForecast';
 import { Invoice, Player } from '../types';
-
-interface DashboardStats {
-  totalPlayers: number;
-  totalCoaches: number;
-  totalPaidInvoices: number;
-  totalOutstandingInvoices: number;
-  attendanceRate: number;
-  averageRating: number;
-}
+import { useStats } from '../hooks/useStats';
 
 export default function Dashboard() {
-  const [stats, setStats] = useState<DashboardStats>({
-    totalPlayers: 0,
-    totalCoaches: 0,
-    totalPaidInvoices: 0,
-    totalOutstandingInvoices: 0,
-    attendanceRate: 0,
-    averageRating: 0
-  });
+  const { players = [] } = useAppState();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const { stats, loading: statsLoading } = useStats(players);
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchInvoices = async () => {
       try {
-        // Fetch players
-        const playersSnapshot = await getDocs(collection(db, 'players'));
-        const totalPlayers = playersSnapshot.docs.length;
-
-        // Fetch coaches
-        const coachesSnapshot = await getDocs(collection(db, 'coaches'));
-        const totalCoaches = coachesSnapshot.docs.length;
-
-        // Fetch invoices
         const invoicesSnapshot = await getDocs(collection(db, 'invoices'));
         const invoicesData = invoicesSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Invoice[];
         setInvoices(invoicesData);
-        
-        // Calculate invoice totals
-        const invoiceTotals = invoicesData.reduce((acc, invoice) => {
-          if (invoice.status === 'paid') {
-            acc.paid += invoice.amount;
-          } else {
-            acc.outstanding += invoice.amount;
-          }
-          return acc;
-        }, { paid: 0, outstanding: 0 });
-
-        // Fetch attendance records
-        const attendanceSnapshot = await getDocs(collection(db, 'attendance'));
-        const attendanceRecords = attendanceSnapshot.docs.map(doc => ({
-          ...doc.data(),
-          present: doc.data().present || false,
-          rating: doc.data().rating || 0
-        }));
-
-        // Calculate attendance stats
-        const totalSessions = attendanceRecords.length;
-        const presentSessions = attendanceRecords.filter(record => record.present).length;
-        const totalRatings = attendanceRecords.reduce((sum, record) => sum + (record.rating || 0), 0);
-
-        const attendanceRate = totalSessions > 0 ? (presentSessions / totalSessions) * 100 : 0;
-        const averageRating = totalSessions > 0 ? totalRatings / totalSessions : 0;
-
-        setStats({
-          totalPlayers,
-          totalCoaches,
-          totalPaidInvoices: invoiceTotals.paid,
-          totalOutstandingInvoices: invoiceTotals.outstanding,
-          attendanceRate,
-          averageRating
-        });
       } catch (error) {
-        console.error('Error fetching dashboard stats:', error);
+        console.error('Error fetching invoices:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchStats();
+    fetchInvoices();
   }, []);
 
-  if (loading) {
+  if (loading || statsLoading) {
     return (
       <div className="space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
@@ -103,6 +45,14 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  const totalPaidInvoices = invoices
+    .filter(inv => inv.status === 'paid')
+    .reduce((sum, inv) => sum + inv.amount, 0);
+
+  const totalOutstandingInvoices = invoices
+    .filter(inv => inv.status === 'outstanding')
+    .reduce((sum, inv) => sum + inv.amount, 0);
 
   return (
     <div className="space-y-8">
@@ -123,24 +73,12 @@ export default function Dashboard() {
 
         <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
           <div className="flex items-center gap-4">
-            <div className="bg-indigo-100 dark:bg-indigo-900/50 p-4 rounded-xl">
-              <UserCog className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Coaches</p>
-              <p className="text-2xl font-bold dark:text-white">{stats.totalCoaches}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
-          <div className="flex items-center gap-4">
             <div className="bg-green-100 dark:bg-green-900/50 p-4 rounded-xl">
               <DollarSign className="w-8 h-8 text-green-600 dark:text-green-400" />
             </div>
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Paid Invoices</p>
-              <p className="text-2xl font-bold dark:text-white">R {stats.totalPaidInvoices.toFixed(2)}</p>
+              <p className="text-2xl font-bold dark:text-white">R {totalPaidInvoices.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -152,7 +90,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Outstanding Invoices</p>
-              <p className="text-2xl font-bold dark:text-white">R {stats.totalOutstandingInvoices.toFixed(2)}</p>
+              <p className="text-2xl font-bold dark:text-white">R {totalOutstandingInvoices.toFixed(2)}</p>
             </div>
           </div>
         </div>

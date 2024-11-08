@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Users, Mail, Phone, Star, Calendar, ArrowLeft } from 'lucide-react';
 import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Coach, Team, AttendanceRecord } from '../../types';
+import { Coach, Team, Player } from '../../types';
+import { useCoachStats } from '../../hooks/useCoachStats';
 import EditCoachForm from './EditCoachForm';
 import LoadingSpinner from '../LoadingSpinner';
 import toast from 'react-hot-toast';
@@ -13,127 +14,98 @@ export default function CoachProfile() {
   const navigate = useNavigate();
   const [coach, setCoach] = useState<Coach | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
-  const [attendanceStats, setAttendanceStats] = useState({
-    totalSessions: 0,
-    averageAttendance: 0,
-    averageRating: 0
-  });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [isEditing, setIsEditing] = useState(false);
-
-  const fetchCoachData = async () => {
-    if (!id) {
-      setError('Invalid coach ID');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Fetch coach data
-      const coachDoc = await getDoc(doc(db, 'coaches', id));
-      if (!coachDoc.exists()) {
-        setError('Coach not found');
-        setLoading(false);
-        return;
-      }
-
-      const coachData = { id: coachDoc.id, ...coachDoc.data() } as Coach;
-      setCoach(coachData);
-
-      // Fetch teams assigned to coach - simplified query without ordering
-      const teamsQuery = query(
-        collection(db, 'teams'),
-        where('coachId', '==', id)
-      );
-      const teamsSnapshot = await getDocs(teamsQuery);
-      const teamsData = teamsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Team[];
-
-      // Sort teams in memory instead of in the query
-      const sortedTeams = teamsData.sort((a, b) => a.name.localeCompare(b.name));
-      setTeams(sortedTeams);
-
-      // Calculate attendance stats if there are teams
-      if (sortedTeams.length > 0) {
-        const attendanceQuery = query(
-          collection(db, 'attendance'),
-          where('teamId', 'in', sortedTeams.map(team => team.id))
-        );
-        
-        const attendanceSnapshot = await getDocs(attendanceQuery);
-        const attendanceRecords = attendanceSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as AttendanceRecord[];
-
-        if (attendanceRecords.length > 0) {
-          const totalSessions = attendanceRecords.length;
-          const presentCount = attendanceRecords.filter(record => record.present).length;
-          const averageAttendance = (presentCount / totalSessions) * 100;
-          const averageRating = attendanceRecords.reduce((sum, record) => sum + (record.rating || 0), 0) / totalSessions;
-
-          setAttendanceStats({
-            totalSessions,
-            averageAttendance,
-            averageRating
-          });
-        }
-      }
-    } catch (error: any) {
-      console.error('Error fetching coach data:', error);
-      setError(error.message || 'Failed to load coach data');
-      toast.error('Failed to load coach data');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { stats, loading: statsLoading } = useCoachStats(id || '');
 
   useEffect(() => {
+    const fetchCoachData = async () => {
+      if (!id) return;
+
+      try {
+        setLoading(true);
+        // Fetch coach data
+        const coachDoc = await getDoc(doc(db, 'coaches', id));
+        if (!coachDoc.exists()) {
+          toast.error('Coach not found');
+          navigate('/coaches');
+          return;
+        }
+
+        const coachData = { id: coachDoc.id, ...coachDoc.data() } as Coach;
+        setCoach(coachData);
+
+        // Fetch teams assigned to coach
+        const teamsQuery = query(
+          collection(db, 'teams'),
+          where('coachId', '==', id)
+        );
+        const teamsSnapshot = await getDocs(teamsQuery);
+        const teamsData = teamsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Team[];
+
+        // For each team, fetch its players
+        const teamsWithPlayers = await Promise.all(
+          teamsData.map(async (team) => {
+            const playersQuery = query(
+              collection(db, 'players'),
+              where('teamId', '==', team.id)
+            );
+            const playersSnapshot = await getDocs(playersQuery);
+            return {
+              ...team,
+              players: playersSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+              })) as Player[],
+              playerCount: playersSnapshot.size
+            };
+          })
+        );
+
+        setTeams(teamsWithPlayers);
+      } catch (error) {
+        console.error('Error fetching coach data:', error);
+        toast.error('Failed to load coach data');
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCoachData();
-  }, [id]);
+  }, [id, navigate]);
 
   const handleUpdateCoach = async (updatedData: Partial<Coach>) => {
     if (!id || !coach) return;
-
+    
     try {
-      const coachRef = doc(db, 'coaches', id);
-      const updatedCoach = {
-        ...coach,
+      await updateDoc(doc(db, 'coaches', id), {
         ...updatedData,
         updatedAt: new Date().toISOString()
-      };
-
-      await updateDoc(coachRef, updatedCoach);
-      setCoach(updatedCoach);
+      });
+      setCoach({ ...coach, ...updatedData });
       setIsEditing(false);
       toast.success('Coach profile updated successfully');
-      
-      // Refresh data to ensure consistency
-      await fetchCoachData();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error updating coach:', error);
-      toast.error(error.message || 'Failed to update coach profile');
+      toast.error('Failed to update coach profile');
     }
   };
 
-  if (loading) {
+  if (loading || statsLoading) {
     return <LoadingSpinner />;
   }
 
-  if (error || !coach) {
+  if (!coach) {
     return (
       <div className="p-6">
         <div className="text-center">
-          <h2 className="text-2xl font-bold mb-4 dark:text-white">{error || 'Coach Not Found'}</h2>
+          <h2 className="text-2xl font-bold mb-4">Coach Not Found</h2>
           <button
             onClick={() => navigate('/coaches')}
-            className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 flex items-center justify-center gap-2"
+            className="text-blue-600 hover:text-blue-800 flex items-center justify-center gap-2"
           >
             <ArrowLeft className="w-4 h-4" />
             Back to Coaches
@@ -148,7 +120,7 @@ export default function CoachProfile() {
       <div className="flex justify-between items-center mb-6">
         <button
           onClick={() => navigate('/coaches')}
-          className="flex items-center gap-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+          className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Coaches
@@ -229,7 +201,7 @@ export default function CoachProfile() {
                 <div>
                   <h3 className="text-lg font-semibold dark:text-white">Attendance</h3>
                   <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {attendanceStats.averageAttendance.toFixed(1)}%
+                    {stats.attendanceStats.attendanceRate.toFixed(1)}%
                   </p>
                 </div>
               </div>
@@ -243,7 +215,7 @@ export default function CoachProfile() {
                 <div>
                   <h3 className="text-lg font-semibold dark:text-white">Rating</h3>
                   <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                    {attendanceStats.averageRating.toFixed(1)}
+                    {stats.attendanceStats.averageRating.toFixed(1)}
                   </p>
                 </div>
               </div>
@@ -260,12 +232,12 @@ export default function CoachProfile() {
                 >
                   <h4 className="font-medium dark:text-white">{team.name}</h4>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {team.players?.length || 0} Players
+                    {(team as any).playerCount || 0} Players
                   </p>
                 </div>
               ))}
               {teams.length === 0 && (
-                <p className="text-gray-500 dark:text-gray-400">
+                <p className="text-gray-500 dark:text-gray-400 col-span-2 text-center py-4">
                   No teams assigned yet
                 </p>
               )}
