@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Users, UserPlus, ClipboardList, LayoutDashboard, GraduationCap, FileText, Settings, LogOut, Shield, UserCircle, X } from 'lucide-react';
 import { useAppState } from '../context/AppStateContext';
 import { useAuth } from '../context/AuthContext';
@@ -65,7 +65,7 @@ export default function Sidebar({ onCloseMobileMenu }: SidebarProps) {
   const menuItems = getMenuItems();
 
   return (
-    <div className="bg-sidebar text-white w-72 h-full flex flex-col relative">
+    <div className="flex flex-col h-full bg-sidebar text-white">
       {/* Mobile close button */}
       {onCloseMobileMenu && (
         <button
@@ -97,7 +97,7 @@ export default function Sidebar({ onCloseMobileMenu }: SidebarProps) {
         </div>
       </div>
       
-      <nav className="flex-1 p-6 space-y-2">
+      <nav className="flex-1 overflow-y-auto p-6 space-y-2">
         {menuItems.map((item) => (
           <Link
             key={item.id}

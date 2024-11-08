@@ -73,7 +73,7 @@ export default function MainLayout() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
+    <div className="flex h-screen overflow-hidden bg-gray-100 dark:bg-gray-900">
       {/* Mobile menu button */}
       <button
         onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -86,13 +86,13 @@ export default function MainLayout() {
       <div
         className={`${
           isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-        } lg:translate-x-0 fixed lg:static z-40 transition-transform duration-300 ease-in-out h-full`}
+        } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-40 w-72 transition-transform duration-300 ease-in-out`}
       >
         <Sidebar onCloseMobileMenu={() => setIsMobileMenuOpen(false)} />
       </div>
 
       {/* Main content */}
-      <main className="flex-1">
+      <main className="flex-1 relative overflow-y-auto">
         <div className="max-w-[1600px] mx-auto p-4 lg:p-8">
           <ErrorBoundary>
             <Routes>{getRoutes()}</Routes>
