@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { Users, Star, Calendar } from 'lucide-react';
-import { collection, getDocs, query, orderBy, where, updateDoc, doc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -46,6 +46,7 @@ export default function AttendanceManagement() {
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -72,33 +73,42 @@ export default function AttendanceManagement() {
           attendanceQuery = query(collection(db, 'attendance'), orderBy('date', 'desc'));
         }
 
+        // Get teams with their stored order
+        const teamsQuery = query(collection(db, 'teams'), orderBy('order', 'asc'));
+
         const [teamsSnapshot, playersSnapshot, attendanceSnapshot] = await Promise.all([
-          getDocs(collection(db, 'teams')),
+          getDocs(teamsQuery),
           getDocs(collection(db, 'players')),
           getDocs(attendanceQuery)
         ]);
 
-        const teamsData = teamsSnapshot.docs.map((doc, index) => ({
+        // Process attendance records first
+        const attendanceData = attendanceSnapshot.docs.map(doc => ({
           id: doc.id,
-          name: doc.data().name,
-          order: doc.data().order || index,
-          stats: calculateTeamStats(doc.id, attendanceSnapshot.docs.map(d => ({
-            id: d.id,
-            ...d.data()
-          }) as AttendanceRecord))
-        })).sort((a, b) => a.order - b.order);
+          ...doc.data()
+        })) as AttendanceRecord[];
+
+        // Map teams with their stored order, defaulting to index if order is not set
+        const teamsData = teamsSnapshot.docs.map((doc, index) => {
+          const data = doc.data();
+          return {
+            id: doc.id,
+            name: data.name,
+            // Use the stored order if it exists, otherwise use the index
+            order: typeof data.order === 'number' ? data.order : index,
+            stats: calculateTeamStats(doc.id, attendanceData)
+          };
+        });
+
+        // Sort teams by their order
+        const sortedTeams = [...teamsData].sort((a, b) => a.order - b.order);
 
         const playersData = playersSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Player[];
 
-        const attendanceData = attendanceSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as AttendanceRecord[];
-
-        setTeams(teamsData);
+        setTeams(sortedTeams);
         setPlayers(playersData);
         setAttendanceRecords(attendanceData);
       } catch (error) {
@@ -133,6 +143,43 @@ export default function AttendanceManagement() {
     setActiveId(event.active.id as string);
   };
 
+  const saveTeamOrder = async (updatedTeams: TeamWithOrder[]) => {
+    setSaving(true);
+    try {
+      const batch = writeBatch(db);
+      
+      // Update each team's order in Firestore
+      updatedTeams.forEach((team, index) => {
+        const teamRef = doc(db, 'teams', team.id);
+        batch.update(teamRef, { 
+          order: index,
+          updatedAt: new Date().toISOString()
+        });
+      });
+
+      await batch.commit();
+      toast.success('Team order saved');
+    } catch (error) {
+      console.error('Error saving team order:', error);
+      toast.error('Failed to save team order');
+      
+      // Refresh the data to ensure we're showing the correct order
+      const teamsQuery = query(collection(db, 'teams'), orderBy('order', 'asc'));
+      const teamsSnapshot = await getDocs(teamsQuery);
+      
+      const teamsData = teamsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+        order: doc.data().order || 0,
+        stats: calculateTeamStats(doc.id, attendanceRecords)
+      }));
+
+      setTeams(teamsData.sort((a, b) => a.order - b.order));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
 
@@ -146,17 +193,8 @@ export default function AttendanceManagement() {
           order: index,
         }));
 
-        // Update positions in Firestore
-        Promise.all(
-          newItems.map((team) =>
-            updateDoc(doc(db, 'teams', team.id), {
-              order: team.order,
-            })
-          )
-        ).catch((error) => {
-          console.error('Error updating team positions:', error);
-          toast.error('Failed to save new positions');
-        });
+        // Save the new order to Firestore
+        saveTeamOrder(newItems);
 
         return newItems;
       });
@@ -213,6 +251,13 @@ export default function AttendanceManagement() {
           ) : null}
         </DragOverlay>
       </DndContext>
+
+      {saving && (
+        <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
+          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+          Saving changes...
+        </div>
+      )}
     </div>
   );
 }
