@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Grid, List, Users, Mail, Phone, Edit, Trash2, Eye } from 'lucide-react';
-import { collection, getDocs, query, orderBy, doc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Team, Coach } from '../types';
@@ -84,15 +84,18 @@ export default function CoachManagement() {
     if (!coachToDelete) return;
 
     try {
-      // Remove coach from teams first
+      // First, update all teams assigned to this coach
       const coachTeams = teams.filter(team => team.coachId === coachToDelete.id);
       const teamUpdates = coachTeams.map(team => 
         updateDoc(doc(db, 'teams', team.id), { coachId: null })
       );
       await Promise.all(teamUpdates);
 
-      // Delete coach document
+      // Delete coach document from coaches collection
       await deleteDoc(doc(db, 'coaches', coachToDelete.id));
+      
+      // Delete user document from users collection
+      await deleteDoc(doc(db, 'users', coachToDelete.id));
       
       setCoaches(coaches.filter(coach => coach.id !== coachToDelete.id));
       toast.success('Coach deleted successfully');
