@@ -7,6 +7,7 @@ import toast from 'react-hot-toast';
 import DeleteConfirmationModal from './DeleteConfirmationModal';
 import InvoiceForm from './invoice/InvoiceForm';
 import InvoiceList from './invoice/InvoiceList';
+import InvoiceStatement from './invoice/InvoiceStatement';
 import FinancialForecast from './stats/FinancialForecast';
 import { Player, Invoice, InvoiceLineItem } from '../types';
 import { addInvoice } from '../lib/firestore';
@@ -20,6 +21,7 @@ export default function InvoiceManagement() {
   const [teams, setTeams] = useState<{ id: string; name: string; }[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showStatementModal, setShowStatementModal] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<Invoice | null>(null);
   const [invoiceToDelete, setInvoiceToDelete] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(false);
@@ -206,40 +208,42 @@ export default function InvoiceManagement() {
   return (
     <div className="p-6">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
           <div className="flex items-center gap-4">
-            <div className="bg-blue-100 p-3 rounded-full">
-              <FileText className="w-6 h-6 text-blue-600" />
+            <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
+              <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold mb-1">Total Invoices</h3>
-              <p className="text-3xl font-bold text-blue-600">{filteredInvoices.length}</p>
+              <h3 className="text-lg font-semibold dark:text-white">Total Invoices</h3>
+              <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                {filteredInvoices.length}
+              </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
           <div className="flex items-center gap-4">
-            <div className="bg-yellow-100 p-3 rounded-full">
-              <AlertCircle className="w-6 h-6 text-yellow-600" />
+            <div className="bg-yellow-100 dark:bg-yellow-900 p-3 rounded-full">
+              <AlertCircle className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold mb-1">Outstanding</h3>
-              <p className="text-3xl font-bold text-yellow-600">
+              <h3 className="text-lg font-semibold dark:text-white">Outstanding</h3>
+              <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
                 R{totalOutstanding.toFixed(2)}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
           <div className="flex items-center gap-4">
-            <div className="bg-green-100 p-3 rounded-full">
-              <CheckCircle className="w-6 h-6 text-green-600" />
+            <div className="bg-green-100 dark:bg-green-900 p-3 rounded-full">
+              <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold mb-1">Paid</h3>
-              <p className="text-3xl font-bold text-green-600">
+              <h3 className="text-lg font-semibold dark:text-white">Paid</h3>
+              <p className="text-3xl font-bold text-green-600 dark:text-green-400">
                 R{totalPaid.toFixed(2)}
               </p>
             </div>
@@ -248,32 +252,43 @@ export default function InvoiceManagement() {
       </div>
 
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold">
+        <h2 className="text-2xl font-bold dark:text-white">
           {user?.role === 'player' ? 'My Invoices' : 'Invoice Management'}
         </h2>
-        {user?.role !== 'player' && (
-          <button
-            onClick={() => {
-              setEditingInvoice(null);
-              setFormData({
-                playerId: '',
-                dueDate: '',
-                description: '',
-                status: 'outstanding',
-                lineItems: [{ description: '', quantity: 1, amount: 0 }]
-              });
-              setShowModal(true);
-            }}
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-          >
-            <Plus className="w-5 h-5" />
-            Create Invoice
-          </button>
-        )}
+        <div className="flex gap-2">
+          {user?.role === 'admin' && (
+            <>
+              <button
+                onClick={() => setShowStatementModal(true)}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                <FileText className="w-5 h-5" />
+                Generate Statement
+              </button>
+              <button
+                onClick={() => {
+                  setEditingInvoice(null);
+                  setFormData({
+                    playerId: '',
+                    dueDate: '',
+                    description: '',
+                    status: 'outstanding',
+                    lineItems: [{ description: '', quantity: 1, amount: 0 }]
+                  });
+                  setShowModal(true);
+                }}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+              >
+                <Plus className="w-5 h-5" />
+                Create Invoice
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {user?.role !== 'player' && (
-        <div className="bg-white p-4 rounded-lg shadow-md mb-6">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="relative flex gap-2">
               <div className="relative flex-1">
@@ -284,7 +299,7 @@ export default function InvoiceManagement() {
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg"
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
               </div>
               <button
@@ -298,7 +313,7 @@ export default function InvoiceManagement() {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value as FilterStatus)}
-              className="w-full p-2 border rounded-lg"
+              className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="all">All Statuses</option>
               <option value="outstanding">Outstanding</option>
@@ -308,7 +323,7 @@ export default function InvoiceManagement() {
             <select
               value={selectedTeam}
               onChange={(e) => setSelectedTeam(e.target.value)}
-              className="w-full p-2 border rounded-lg"
+              className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
               <option value="">All Teams</option>
               {teams.map((team) => (
@@ -320,7 +335,7 @@ export default function InvoiceManagement() {
 
             <button
               onClick={clearFilters}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
             >
               Clear Filters
             </button>
@@ -373,6 +388,14 @@ export default function InvoiceManagement() {
             setShowDeleteModal(false);
             setInvoiceToDelete(null);
           }}
+        />
+      )}
+
+      {showStatementModal && (
+        <InvoiceStatement
+          invoices={invoices}
+          players={players}
+          onClose={() => setShowStatementModal(false)}
         />
       )}
     </div>
