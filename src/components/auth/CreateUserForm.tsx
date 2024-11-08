@@ -3,7 +3,7 @@ import { X, Upload, Users } from 'lucide-react';
 import { createAuthUser } from '../../lib/auth';
 import { UserRole, Team } from '../../types';
 import PasswordField from './PasswordField';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import toast from 'react-hot-toast';
 
@@ -39,6 +39,28 @@ export default function CreateUserForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (role === 'coach') {
+      const fetchTeams = async () => {
+        try {
+          const teamsQuery = query(collection(db, 'teams'), orderBy('name'));
+          const snapshot = await getDocs(teamsQuery);
+          const teamsData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as Team[];
+          setTeams(teamsData);
+        } catch (error) {
+          console.error('Error fetching teams:', error);
+          toast.error('Failed to load teams');
+        }
+      };
+      fetchTeams();
+    }
+  }, [role]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -88,6 +110,14 @@ export default function CreateUserForm({
           createdAt: new Date().toISOString()
         }
       });
+
+      // If this is a coach and teams were selected, update the team assignments
+      if (role === 'coach' && selectedTeams.length > 0) {
+        const updatePromises = selectedTeams.map(teamId =>
+          updateDoc(doc(db, 'teams', teamId), { coachId: userId })
+        );
+        await Promise.all(updatePromises);
+      }
 
       onSuccess(userId, {
         ...userData,
@@ -246,6 +276,39 @@ export default function CreateUserForm({
                   min="0"
                   className="w-full p-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Assign Teams
+                </label>
+                <div className="max-h-48 overflow-y-auto border dark:border-gray-600 rounded-lg">
+                  {teams.map(team => (
+                    <label
+                      key={team.id}
+                      className="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedTeams.includes(team.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTeams([...selectedTeams, team.id]);
+                          } else {
+                            setSelectedTeams(selectedTeams.filter(id => id !== team.id));
+                          }
+                        }}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                      <span className="ml-2 text-gray-700 dark:text-gray-300">{team.name}</span>
+                    </label>
+                  ))}
+                  {teams.length === 0 && (
+                    <p className="p-2 text-gray-500 dark:text-gray-400 text-center">
+                      No teams available
+                    </p>
+                  )}
+                </div>
               </div>
             </>
           )}
