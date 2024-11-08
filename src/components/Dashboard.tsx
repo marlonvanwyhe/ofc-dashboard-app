@@ -1,21 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, DollarSign, Calendar, TrendingUp, UserCog } from 'lucide-react';
 import { useAppState } from '../context/AppStateContext';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase';
 import FinancialForecast from './stats/FinancialForecast';
-import { Invoice, Player } from '../types';
+import { Invoice } from '../types';
 import { useStats } from '../hooks/useStats';
 
 export default function Dashboard() {
   const { players = [] } = useAppState();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [totalCoaches, setTotalCoaches] = useState(0);
   const { stats, loading: statsLoading } = useStats(players);
 
   useEffect(() => {
-    const fetchInvoices = async () => {
+    const fetchData = async () => {
       try {
+        // Fetch coaches count
+        const coachesSnapshot = await getDocs(collection(db, 'coaches'));
+        setTotalCoaches(coachesSnapshot.docs.length);
+
+        // Fetch invoices
         const invoicesSnapshot = await getDocs(collection(db, 'invoices'));
         const invoicesData = invoicesSnapshot.docs.map(doc => ({
           id: doc.id,
@@ -23,13 +29,13 @@ export default function Dashboard() {
         })) as Invoice[];
         setInvoices(invoicesData);
       } catch (error) {
-        console.error('Error fetching invoices:', error);
+        console.error('Error fetching data:', error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchInvoices();
+    fetchData();
   }, []);
 
   if (loading || statsLoading) {
@@ -67,6 +73,18 @@ export default function Dashboard() {
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-400">Total Players</p>
               <p className="text-2xl font-bold dark:text-white">{stats.totalPlayers}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-md hover:shadow-lg transition-shadow">
+          <div className="flex items-center gap-4">
+            <div className="bg-indigo-100 dark:bg-indigo-900/50 p-4 rounded-xl">
+              <UserCog className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Coaches</p>
+              <p className="text-2xl font-bold dark:text-white">{totalCoaches}</p>
             </div>
           </div>
         </div>
