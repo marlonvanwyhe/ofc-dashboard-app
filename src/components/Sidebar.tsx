@@ -55,7 +55,6 @@ export default function Sidebar({ onCloseMobileMenu }: SidebarProps) {
       return [
         { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         ...baseItems,
-        { id: 'attendance', icon: ClipboardList, label: 'My Attendance', path: '/attendance' },
         { id: 'invoices', icon: FileText, label: 'My Invoices', path: '/invoices' },
         { id: 'stats', icon: BarChart, label: 'My Stats', path: '/stats' },
       ];
