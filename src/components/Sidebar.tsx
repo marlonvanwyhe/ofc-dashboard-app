@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, UserPlus, ClipboardList, LayoutDashboard, GraduationCap, FileText, Settings, LogOut, Shield, UserCircle, X } from 'lucide-react';
+import { Users, UserPlus, ClipboardList, LayoutDashboard, GraduationCap, FileText, Settings, LogOut, Shield, UserCircle, X, BarChart } from 'lucide-react';
 import { useAppState } from '../context/AppStateContext';
 import { useAuth } from '../context/AuthContext';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
@@ -53,9 +53,11 @@ export default function Sidebar({ onCloseMobileMenu }: SidebarProps) {
       ];
     } else if (user?.role === 'player') {
       return [
+        { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', path: '/' },
         ...baseItems,
         { id: 'attendance', icon: ClipboardList, label: 'My Attendance', path: '/attendance' },
         { id: 'invoices', icon: FileText, label: 'My Invoices', path: '/invoices' },
+        { id: 'stats', icon: BarChart, label: 'My Stats', path: '/stats' },
       ];
     }
 

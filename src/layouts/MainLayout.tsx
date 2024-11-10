@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import Sidebar from '../components/Sidebar';
 import Dashboard from '../components/Dashboard';
 import CoachDashboard from '../components/coach/CoachDashboard';
+import PlayerDashboard from '../components/player/PlayerDashboard';
+import PlayerStats from '../components/player/PlayerStats';
 import CoachManagement from '../components/CoachManagement';
 import PlayerManagement from '../components/PlayerManagement';
 import TeamManagement from '../components/TeamManagement';
@@ -59,11 +61,12 @@ export default function MainLayout() {
       case 'player':
         return (
           <>
+            <Route path="/" element={<PlayerDashboard />} />
             <Route path="/profile" element={<UserProfile />} />
             <Route path="/player-profile/:id" element={<PlayerProfile />} />
             <Route path="/attendance" element={<AttendanceManagement />} />
             <Route path="/invoices" element={<InvoiceManagement />} />
-            <Route path="*" element={<Navigate to={`/player-profile/${user.profileId}`} replace />} />
+            <Route path="/stats" element={<PlayerStats />} />
           </>
         );
 
