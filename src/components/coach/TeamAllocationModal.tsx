@@ -47,10 +47,16 @@ export default function TeamAllocationModal({ coachId, onClose, onSuccess }: Tea
       const updatePromises = teams.map(team => {
         if (selectedTeams.includes(team.id)) {
           // Assign team to coach
-          return updateDoc(doc(db, 'teams', team.id), { coachId });
+          return updateDoc(doc(db, 'teams', team.id), {
+            coachId,
+            updatedAt: new Date().toISOString()
+          });
         } else if (team.coachId === coachId) {
           // Remove coach from team
-          return updateDoc(doc(db, 'teams', team.id), { coachId: null });
+          return updateDoc(doc(db, 'teams', team.id), {
+            coachId: null,
+            updatedAt: new Date().toISOString()
+          });
         }
         return Promise.resolve();
       });
@@ -90,10 +96,17 @@ export default function TeamAllocationModal({ coachId, onClose, onSuccess }: Tea
           </button>
         </div>
 
-        <div className="max-h-60 overflow-y-auto">
-          {teams.length > 0 ? (
-            teams.map(team => (
-              <label key={team.id} className="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded">
+        <div className="border dark:border-gray-600 rounded-lg divide-y dark:divide-gray-600">
+          <div className="max-h-60 overflow-y-auto">
+            {teams.map(team => (
+              <label
+                key={team.id}
+                className={`flex items-center p-3 cursor-pointer transition-colors ${
+                  selectedTeams.includes(team.id)
+                    ? 'bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+                }`}
+              >
                 <input
                   type="checkbox"
                   checked={selectedTeams.includes(team.id)}
@@ -104,14 +117,26 @@ export default function TeamAllocationModal({ coachId, onClose, onSuccess }: Tea
                       setSelectedTeams(selectedTeams.filter(id => id !== team.id));
                     }
                   }}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
+                  className="form-checkbox h-5 w-5 text-checkbox border-gray-300 rounded focus:ring-checkbox"
                 />
-                <span className="ml-2 dark:text-white">{team.name}</span>
+                <div className="ml-3 flex-1">
+                  <span className="block font-medium dark:text-white">{team.name}</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {team.players?.length || 0} Players
+                  </span>
+                </div>
               </label>
-            ))
-          ) : (
-            <p className="text-center text-gray-500 dark:text-gray-400">No teams available</p>
-          )}
+            ))}
+            {teams.length === 0 && (
+              <p className="p-4 text-center text-gray-500 dark:text-gray-400">
+                No teams available
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+          Selected: {selectedTeams.length} teams
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
@@ -124,7 +149,7 @@ export default function TeamAllocationModal({ coachId, onClose, onSuccess }: Tea
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-secondary disabled:opacity-50"
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>

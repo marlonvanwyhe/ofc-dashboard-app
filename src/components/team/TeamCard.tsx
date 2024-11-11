@@ -13,19 +13,18 @@ interface TeamCardProps {
 
 export default function TeamCard({ team, coach, players, onEdit, onDelete }: TeamCardProps) {
   const [showPlayerModal, setShowPlayerModal] = useState(false);
-  // Get all players assigned to this team
   const teamPlayers = players.filter(p => p.teamId === team.id);
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-3">
+      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded-full">
-              <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h3 className="font-semibold dark:text-white">{team.name}</h3>
+              <h3 className="font-semibold text-lg dark:text-white">{team.name}</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 Coach: {coach?.name || 'Unassigned'}
               </p>
@@ -42,33 +41,46 @@ export default function TeamCard({ team, coach, players, onEdit, onDelete }: Tea
             <button
               onClick={() => onEdit(team)}
               className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+              title="Edit Team"
             >
               <Edit className="w-5 h-5" />
             </button>
             <button
               onClick={() => onDelete(team)}
               className="text-red-500 hover:text-red-700"
+              title="Delete Team"
             >
               <Trash2 className="w-5 h-5" />
             </button>
           </div>
         </div>
+
         <div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-            Players: {teamPlayers.length}
-          </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Players ({teamPlayers.length})
+            </h4>
+          </div>
+          <div className="space-y-2">
             {teamPlayers.map((player) => (
-              <span
+              <div
                 key={player.id}
-                className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded dark:text-gray-300"
+                className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded"
               >
-                {player.name}
-                {player.playerNumber && ` (#${player.playerNumber})`}
-              </span>
+                <span className="text-sm dark:text-white">
+                  {player.name}
+                  {player.playerNumber && (
+                    <span className="text-gray-500 dark:text-gray-400 ml-1">
+                      #{player.playerNumber}
+                    </span>
+                  )}
+                </span>
+              </div>
             ))}
             {teamPlayers.length === 0 && (
-              <span className="text-xs text-gray-500 dark:text-gray-400">No players assigned</span>
+              <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-2">
+                No players assigned
+              </p>
             )}
           </div>
         </div>
@@ -80,7 +92,6 @@ export default function TeamCard({ team, coach, players, onEdit, onDelete }: Tea
           onClose={() => setShowPlayerModal(false)}
           onSuccess={() => {
             setShowPlayerModal(false);
-            // Trigger a refresh of the team data
             window.location.reload();
           }}
         />

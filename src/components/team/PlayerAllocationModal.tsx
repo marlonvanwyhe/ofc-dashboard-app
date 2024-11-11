@@ -13,7 +13,7 @@ interface PlayerAllocationModalProps {
 
 export default function PlayerAllocationModal({ team, onClose, onSuccess }: PlayerAllocationModalProps) {
   const [players, setPlayers] = useState<Player[]>([]);
-  const [selectedPlayers, setSelectedPlayers] = useState<string[]>(team.players || []);
+  const [selectedPlayers, setSelectedPlayers] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -27,6 +27,8 @@ export default function PlayerAllocationModal({ team, onClose, onSuccess }: Play
           ...doc.data()
         })) as Player[];
         setPlayers(playersData);
+        // Set initially selected players based on teamId
+        setSelectedPlayers(playersData.filter(p => p.teamId === team.id).map(p => p.id));
       } catch (error) {
         console.error('Error fetching players:', error);
         toast.error('Failed to load players');
@@ -36,17 +38,12 @@ export default function PlayerAllocationModal({ team, onClose, onSuccess }: Play
     };
 
     fetchPlayers();
-  }, []);
+  }, [team.id]);
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateDoc(doc(db, 'teams', team.id), {
-        players: selectedPlayers,
-        updatedAt: new Date().toISOString()
-      });
-
-      // Update player documents with their team assignment
+      // Update all players' team assignments
       const updatePromises = players.map(player => {
         if (selectedPlayers.includes(player.id)) {
           return updateDoc(doc(db, 'players', player.id), { teamId: team.id });
@@ -57,7 +54,6 @@ export default function PlayerAllocationModal({ team, onClose, onSuccess }: Play
       });
 
       await Promise.all(updatePromises);
-      
       toast.success('Players updated successfully');
       onSuccess();
       onClose();
@@ -88,7 +84,7 @@ export default function PlayerAllocationModal({ team, onClose, onSuccess }: Play
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold dark:text-white">Assign Players to {team.name}</h3>
+          <h3 className="text-lg font-semibold dark:text-white">Manage Players - {team.name}</h3>
           <button
             onClick={onClose}
             className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
@@ -110,31 +106,49 @@ export default function PlayerAllocationModal({ team, onClose, onSuccess }: Play
           </div>
         </div>
 
-        <div className="max-h-60 overflow-y-auto">
-          {filteredPlayers.length > 0 ? (
-            filteredPlayers.map(player => (
-              <label key={player.id} className="flex items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded">
-                <input
-                  type="checkbox"
-                  checked={selectedPlayers.includes(player.id)}
-                  onChange={(e) => {
-                    if (e.target.checked) {
-                      setSelectedPlayers([...selectedPlayers, player.id]);
-                    } else {
-                      setSelectedPlayers(selectedPlayers.filter(id => id !== player.id));
-                    }
-                  }}
-                  className="rounded border-gray-300 text-primary focus:ring-primary"
-                />
-                <span className="ml-2 dark:text-white">
+        <div className="max-h-60 overflow-y-auto border dark:border-gray-600 rounded-lg">
+          {filteredPlayers.map(player => (
+            <label
+              key={player.id}
+              className={`flex items-center p-3 cursor-pointer border-b dark:border-gray-600 last:border-b-0 transition-colors ${
+                selectedPlayers.includes(player.id)
+                  ? 'bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/40'
+                  : 'hover:bg-gray-100 dark:hover:bg-gray-600'
+              }`}
+            >
+              <input
+                type="checkbox"
+                checked={selectedPlayers.includes(player.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedPlayers([...selectedPlayers, player.id]);
+                  } else {
+                    setSelectedPlayers(selectedPlayers.filter(id => id !== player.id));
+                  }
+                }}
+                className="form-checkbox h-5 w-5 text-checkbox border-gray-300 rounded focus:ring-checkbox"
+              />
+              <div className="ml-3 flex-1">
+                <span className="block font-medium dark:text-white">
                   {player.name}
-                  {player.playerNumber && ` (#${player.playerNumber})`}
                 </span>
-              </label>
-            ))
-          ) : (
-            <p className="text-center text-gray-500 dark:text-gray-400">No players found</p>
+                {player.playerNumber && (
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    #{player.playerNumber}
+                  </span>
+                )}
+              </div>
+            </label>
+          ))}
+          {filteredPlayers.length === 0 && (
+            <p className="p-4 text-center text-gray-500 dark:text-gray-400">
+              No players found
+            </p>
           )}
+        </div>
+
+        <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+          Selected: {selectedPlayers.length} players
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
@@ -147,7 +161,7 @@ export default function PlayerAllocationModal({ team, onClose, onSuccess }: Play
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 py-2 bg-primary text-white rounded hover:bg-secondary disabled:opacity-50"
+            className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-secondary disabled:opacity-50"
           >
             {saving ? 'Saving...' : 'Save Changes'}
           </button>

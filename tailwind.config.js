@@ -20,7 +20,14 @@ export default {
         secondary: 'var(--color-secondary)',
         accent: 'var(--color-accent)',
       },
+      colors: {
+        checkbox: '#DDAB22',
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    require('@tailwindcss/forms')({
+      strategy: 'class',
+    }),
+  ],
 };
