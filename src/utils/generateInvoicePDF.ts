@@ -79,13 +79,29 @@ export const generateInvoicePDF = (invoice: Invoice, player: Player) => {
     { align: 'right' }
   );
 
+  // Banking Details
+  const pageHeight = doc.internal.pageSize.getHeight();
+  doc.setTextColor(0, 0, 0); // Reset to black
+  doc.setFontSize(11);
+  doc.setFont(undefined, 'bold');
+  doc.text('Bank Details:', margin, pageHeight - 50);
+  doc.setFont(undefined, 'normal');
+  doc.setFontSize(10);
+  doc.text([
+    'Company: Origin FC',
+    'Bank: FNB',
+    'Account: 63078075223',
+    'Branch Code: 250655',
+    `Reference: ${player.name}${player.playerNumber ? ` (${player.playerNumber})` : ''}`
+  ], margin, pageHeight - 43);
+
   // Footer
   doc.setTextColor(128, 128, 128); // Gray for footer
   doc.setFontSize(10);
   doc.text(
     'Thank you for your business',
     pageWidth / 2,
-    doc.internal.pageSize.getHeight() - 20,
+    pageHeight - 20,
     { align: 'center' }
   );
 
