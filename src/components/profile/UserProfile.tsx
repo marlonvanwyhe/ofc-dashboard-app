@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
-import { Shield, Mail, Phone, MapPin, Upload, Save, Building, User } from 'lucide-react';
+import { Shield, Mail, Phone, MapPin, Upload, Save, User } from 'lucide-react';
 import LoadingSpinner from '../LoadingSpinner';
 import toast from 'react-hot-toast';
 
@@ -245,36 +245,68 @@ export default function UserProfile() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Position
-                </label>
-                <div className="relative">
-                  <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              {user.role === 'player' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Player Number
+                  </label>
+                  <input
+                    type="text"
+                    value={profileData.playerNumber || ''}
+                    onChange={(e) => setProfileData({ ...profileData, playerNumber: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-800"
+                    placeholder="Enter player number"
+                  />
+                </div>
+              )}
+
+              {user.role === 'coach' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Specialization
+                    </label>
+                    <input
+                      type="text"
+                      value={profileData.specialization || ''}
+                      onChange={(e) => setProfileData({ ...profileData, specialization: e.target.value })}
+                      disabled={!isEditing}
+                      className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-800"
+                      placeholder="Enter specialization"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Experience (Years)
+                    </label>
+                    <input
+                      type="number"
+                      value={profileData.experience || ''}
+                      onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
+                      disabled={!isEditing}
+                      className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-800"
+                      placeholder="Enter years of experience"
+                    />
+                  </div>
+                </>
+              )}
+
+              {user.role === 'admin' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Position
+                  </label>
                   <input
                     type="text"
                     value={profileData.position || ''}
                     onChange={(e) => setProfileData({ ...profileData, position: e.target.value })}
                     disabled={!isEditing}
-                    className="w-full pl-10 p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-800"
-                    placeholder="Enter your position"
+                    className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-800"
+                    placeholder="Enter position"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Description
-                </label>
-                <textarea
-                  value={profileData.description || ''}
-                  onChange={(e) => setProfileData({ ...profileData, description: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full p-3 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white disabled:bg-gray-50 dark:disabled:bg-gray-800"
-                  rows={4}
-                  placeholder="Tell us about yourself"
-                />
-              </div>
+              )}
             </div>
           </div>
 
