@@ -1,10 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { format } from 'date-fns';
-import { Users, Star, Calendar } from 'lucide-react';
-import { collection, getDocs, query, orderBy, where, updateDoc, doc, writeBatch } from 'firebase/firestore';
-import { db } from '../firebase';
-import { useAuth } from '../context/AuthContext';
-import toast from 'react-hot-toast';
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { Team, Player, AttendanceRecord } from '../types';
 import LoadingSpinner from './LoadingSpinner';
 import {
@@ -27,10 +23,7 @@ import {
 import { SortableTeamCard } from './attendance/SortableTeamCard';
 import { TeamCard } from './attendance/TeamCard';
 
-interface TeamWithOrder {
-  id: string;
-  name: string;
-  order: number;
+interface TeamWithStats extends Team {
   stats: {
     totalSessions: number;
     presentCount: number;
@@ -40,13 +33,10 @@ interface TeamWithOrder {
 }
 
 export default function AttendanceManagement() {
-  const { user } = useAuth();
-  const [teams, setTeams] = useState<TeamWithOrder[]>([]);
+  const [teams, setTeams] = useState<TeamWithStats[]>([]);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -62,165 +52,94 @@ export default function AttendanceManagement() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        let attendanceQuery;
-        if (user?.role === 'player' && user.profileId) {
-          attendanceQuery = query(
-            collection(db, 'attendance'),
-            where('playerId', '==', user.profileId),
-            orderBy('date', 'desc')
-          );
-        } else {
-          attendanceQuery = query(collection(db, 'attendance'), orderBy('date', 'desc'));
-        }
-
-        // Get teams with their stored order
-        const teamsQuery = query(collection(db, 'teams'), orderBy('order', 'asc'));
-
+        // Fetch teams, players, and attendance records in parallel
         const [teamsSnapshot, playersSnapshot, attendanceSnapshot] = await Promise.all([
-          getDocs(teamsQuery),
+          getDocs(query(collection(db, 'teams'), orderBy('order', 'asc'))),
           getDocs(collection(db, 'players')),
-          getDocs(attendanceQuery)
+          getDocs(query(collection(db, 'attendance'), orderBy('date', 'desc')))
         ]);
-
-        // Process attendance records first
-        const attendanceData = attendanceSnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as AttendanceRecord[];
-
-        // Map teams with their stored order, defaulting to index if order is not set
-        const teamsData = teamsSnapshot.docs.map((doc, index) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name,
-            // Use the stored order if it exists, otherwise use the index
-            order: typeof data.order === 'number' ? data.order : index,
-            stats: calculateTeamStats(doc.id, attendanceData)
-          };
-        });
-
-        // Sort teams by their order
-        const sortedTeams = [...teamsData].sort((a, b) => a.order - b.order);
 
         const playersData = playersSnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })) as Player[];
 
-        setTeams(sortedTeams);
+        const attendanceRecords = attendanceSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as AttendanceRecord[];
+
+        // Process teams with stats
+        const teamsData = teamsSnapshot.docs.map((doc, index) => {
+          const teamData = doc.data();
+          const teamPlayers = playersData.filter(p => p.teamId === doc.id);
+          const teamAttendance = attendanceRecords.filter(record => 
+            teamPlayers.some(p => p.id === record.playerId)
+          );
+
+          // Calculate team stats
+          const totalSessions = teamAttendance.length;
+          const presentCount = teamAttendance.filter(record => record.present).length;
+          const attendanceRate = totalSessions > 0 ? (presentCount / totalSessions) * 100 : 0;
+
+          // Calculate average rating only from records with ratings
+          const validRatings = teamAttendance.filter(record => record.rating && record.rating > 0);
+          const averageRating = validRatings.length > 0
+            ? validRatings.reduce((sum, record) => sum + (record.rating || 0), 0) / validRatings.length
+            : 0;
+
+          return {
+            id: doc.id,
+            ...teamData,
+            order: typeof teamData.order === 'number' ? teamData.order : index,
+            stats: {
+              totalSessions,
+              presentCount,
+              attendanceRate,
+              averageRating
+            }
+          } as TeamWithStats;
+        });
+
+        setTeams(teamsData.sort((a, b) => a.order - b.order));
         setPlayers(playersData);
-        setAttendanceRecords(attendanceData);
       } catch (error) {
         console.error('Error fetching data:', error);
-        toast.error('Failed to load data');
       } finally {
         setLoading(false);
       }
     };
 
     fetchData();
-  }, [user]);
-
-  const calculateTeamStats = (teamId: string, records: AttendanceRecord[]) => {
-    const teamRecords = records.filter(record => record.teamId === teamId);
-    const totalSessions = teamRecords.length;
-    const presentCount = teamRecords.filter(record => record.present).length;
-    const attendanceRate = totalSessions > 0 ? (presentCount / totalSessions) * 100 : 0;
-    const averageRating = teamRecords.length > 0
-      ? teamRecords.reduce((sum, record) => sum + (record.rating || 0), 0) / teamRecords.length
-      : 0;
-
-    return {
-      totalSessions,
-      presentCount,
-      attendanceRate,
-      averageRating
-    };
-  };
+  }, []);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
 
-  const saveTeamOrder = async (updatedTeams: TeamWithOrder[]) => {
-    setSaving(true);
-    try {
-      const batch = writeBatch(db);
-      
-      // Update each team's order in Firestore
-      updatedTeams.forEach((team, index) => {
-        const teamRef = doc(db, 'teams', team.id);
-        batch.update(teamRef, { 
-          order: index,
-          updatedAt: new Date().toISOString()
-        });
-      });
-
-      await batch.commit();
-      toast.success('Team order saved');
-    } catch (error) {
-      console.error('Error saving team order:', error);
-      toast.error('Failed to save team order');
-      
-      // Refresh the data to ensure we're showing the correct order
-      const teamsQuery = query(collection(db, 'teams'), orderBy('order', 'asc'));
-      const teamsSnapshot = await getDocs(teamsQuery);
-      
-      const teamsData = teamsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        name: doc.data().name,
-        order: doc.data().order || 0,
-        stats: calculateTeamStats(doc.id, attendanceRecords)
-      }));
-
-      setTeams(teamsData.sort((a, b) => a.order - b.order));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
       setTeams((items) => {
         const oldIndex = items.findIndex((item) => item.id === active.id);
         const newIndex = items.findIndex((item) => item.id === over.id);
-
-        const newItems = arrayMove(items, oldIndex, newIndex).map((item, index) => ({
-          ...item,
-          order: index,
-        }));
-
-        // Save the new order to Firestore
-        saveTeamOrder(newItems);
-
-        return newItems;
+        return arrayMove(items, oldIndex, newIndex);
       });
     }
 
     setActiveId(null);
   };
 
-  const activeTeam = teams.find((team) => team.id === activeId);
-
   if (loading) {
     return <LoadingSpinner />;
   }
 
+  const activeTeam = teams.find((team) => team.id === activeId);
+
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h2 className="text-2xl font-bold dark:text-white">
-          {user?.role === 'player' ? 'My Attendance' : 'Attendance Management'}
-        </h2>
-        {user?.role === 'admin' && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-            Drag and drop cards to rearrange teams
-          </p>
-        )}
-      </div>
+      <h2 className="text-2xl font-bold dark:text-white mb-6">Attendance Overview</h2>
 
       <DndContext
         sensors={sensors}
@@ -251,13 +170,6 @@ export default function AttendanceManagement() {
           ) : null}
         </DragOverlay>
       </DndContext>
-
-      {saving && (
-        <div className="fixed bottom-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2">
-          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-          Saving changes...
-        </div>
-      )}
     </div>
   );
 }

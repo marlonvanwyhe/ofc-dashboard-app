@@ -12,10 +12,10 @@ export default function PlayerDashboard() {
   if (loading) {
     return (
       <div className="animate-pulse">
-        <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
+        <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/4 mb-6"></div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-32 bg-gray-200 rounded"></div>
+            <div key={i} className="h-32 bg-gray-200 dark:bg-gray-700 rounded"></div>
           ))}
         </div>
       </div>
@@ -38,8 +38,8 @@ export default function PlayerDashboard() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold dark:text-white">Welcome, {player?.name}</h1>
       </div>
 

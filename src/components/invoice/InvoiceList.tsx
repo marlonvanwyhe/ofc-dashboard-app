@@ -1,6 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { Check, AlertCircle, Edit, Trash2, Download } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 interface Player {
   id: string;
@@ -31,86 +32,108 @@ export default function InvoiceList({
   onEdit,
   onDelete
 }: InvoiceListProps) {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
+
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
+      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+        <thead className="bg-gray-50 dark:bg-gray-900">
           <tr>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Invoice Number
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Player
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Amount
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Due Date
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Status
             </th>
-            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Actions
             </th>
           </tr>
         </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+        <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
           {invoices.map((invoice) => (
-            <tr key={invoice.id} className="hover:bg-gray-50">
+            <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
                   {invoice.invoiceNumber}
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-900">
+                <div className="text-sm text-gray-900 dark:text-white">
                   {players.find(p => p.id === invoice.playerId)?.name}
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-900">
+                <div className="text-sm text-gray-900 dark:text-white">
                   R{invoice.amount.toFixed(2)}
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <div className="text-sm text-gray-900">
+                <div className="text-sm text-gray-900 dark:text-white">
                   {format(new Date(invoice.dueDate), 'PP')}
                 </div>
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
-                <button
-                  onClick={() => onStatusToggle(invoice)}
-                  className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                {isAdmin ? (
+                  <button
+                    onClick={() => onStatusToggle(invoice)}
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                      invoice.status === 'paid'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                    }`}
+                  >
+                    {invoice.status === 'paid' ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    {invoice.status}
+                  </button>
+                ) : (
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                     invoice.status === 'paid'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-red-100 text-red-800'
-                  }`}
-                >
-                  {invoice.status === 'paid' ? (
-                    <Check className="w-4 h-4 mr-1" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 mr-1" />
-                  )}
-                  {invoice.status}
-                </button>
+                      ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                      : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                  }`}>
+                    {invoice.status === 'paid' ? (
+                      <Check className="w-4 h-4 mr-1" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                    )}
+                    {invoice.status}
+                  </span>
+                )}
               </td>
               <td className="px-6 py-4 whitespace-nowrap">
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => onEdit(invoice)}
-                    className="text-blue-600 hover:text-blue-800"
-                  >
-                    <Edit className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(invoice)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                  <button className="text-gray-500 hover:text-gray-700">
+                  {isAdmin && (
+                    <>
+                      <button
+                        onClick={() => onEdit(invoice)}
+                        className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      <button
+                        onClick={() => onDelete(invoice)}
+                        className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </>
+                  )}
+                  <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
                     <Download className="w-5 h-5" />
                   </button>
                 </div>
