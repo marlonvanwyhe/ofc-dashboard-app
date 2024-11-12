@@ -38,32 +38,58 @@ export const generateInvoicePDF = (invoice: Invoice, player: Player) => {
   doc.rect(margin, y, pageWidth - (2 * margin), 10, 'F');
   doc.setFontSize(10);
   doc.text('Description', margin + 5, y + 7);
-  doc.text('Quantity', pageWidth - margin - 65, y + 7);
-  doc.text('Amount', pageWidth - margin - 35, y + 7);
+  doc.text('Qty', pageWidth - margin - 80, y + 7, { align: 'center' });
+  doc.text('Rate', pageWidth - margin - 45, y + 7, { align: 'center' });
+  doc.text('Amount', pageWidth - margin - 5, y + 7, { align: 'right' });
 
   // Items
   y += 15;
-  if (invoice.items && invoice.items.length > 0) {
-    invoice.items.forEach(item => {
-      doc.text(item.description, margin + 5, y);
-      doc.text(item.quantity.toString(), pageWidth - margin - 65, y);
-      doc.text(`R${item.amount.toFixed(2)}`, pageWidth - margin - 35, y);
-      y += 10;
+  doc.setFont(undefined, 'normal');
+  let items = invoice.items && invoice.items.length > 0 
+    ? invoice.items 
+    : [{ description: invoice.description || 'Training and Development', quantity: 1, amount: invoice.amount }];
+
+  items.forEach(item => {
+    // Description - allow wrapping for long descriptions
+    const description = item.description || 'Training and Development';
+    const descriptionWidth = pageWidth - (2 * margin) - 120; // Leave space for other columns
+    const lines = doc.splitTextToSize(description, descriptionWidth);
+    
+    // Draw each line of the description
+    lines.forEach((line: string, index: number) => {
+      doc.text(line, margin + 5, y + (index * 5));
     });
-  } else {
-    // If no items, show total as single line
-    doc.text('Training and Development', margin + 5, y);
-    doc.text('1', pageWidth - margin - 65, y);
-    doc.text(`R${invoice.amount.toFixed(2)}`, pageWidth - margin - 35, y);
-  }
+
+    // Calculate the maximum height needed for this row
+    const rowHeight = Math.max(lines.length * 5, 8);
+
+    // Draw other columns aligned to the bottom of the row
+    doc.text(item.quantity.toString(), pageWidth - margin - 80, y + rowHeight - 3, { align: 'center' });
+    doc.text(`R${item.amount.toFixed(2)}`, pageWidth - margin - 45, y + rowHeight - 3, { align: 'center' });
+    const lineTotal = item.quantity * item.amount;
+    doc.text(`R${lineTotal.toFixed(2)}`, pageWidth - margin - 5, y + rowHeight - 3, { align: 'right' });
+
+    // Move to next row, adding extra space for wrapped text
+    y += rowHeight + 5;
+  });
+
+  // Subtotal and Total
+  y += 10;
+  const subtotal = items.reduce((sum, item) => sum + (item.quantity * item.amount), 0);
+  
+  // Draw line above totals
+  doc.setLineWidth(0.5);
+  doc.line(pageWidth - margin - 90, y - 5, pageWidth - margin, y - 5);
+
+  // Subtotal
+  doc.text('Subtotal:', pageWidth - margin - 90, y);
+  doc.text(`R${subtotal.toFixed(2)}`, pageWidth - margin - 5, y, { align: 'right' });
 
   // Total
-  y += 20;
-  doc.line(margin, y - 5, pageWidth - margin, y - 5);
-  doc.setFontSize(12);
+  y += 10;
   doc.setFont(undefined, 'bold');
-  doc.text('Total:', pageWidth - margin - 65, y + 5);
-  doc.text(`R${invoice.amount.toFixed(2)}`, pageWidth - margin - 35, y + 5);
+  doc.text('Total:', pageWidth - margin - 90, y);
+  doc.text(`R${invoice.amount.toFixed(2)}`, pageWidth - margin - 5, y, { align: 'right' });
 
   // Status
   doc.setFontSize(14);
