@@ -2,10 +2,14 @@ import React from 'react';
 import { format } from 'date-fns';
 import { Check, AlertCircle, Edit, Trash2, Download } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { generateInvoicePDF } from '../../utils/generateInvoicePDF';
+import toast from 'react-hot-toast';
 
 interface Player {
   id: string;
   name: string;
+  email?: string;
+  phone?: string;
 }
 
 interface Invoice {
@@ -15,6 +19,12 @@ interface Invoice {
   amount: number;
   dueDate: string;
   status: 'paid' | 'outstanding';
+  items?: Array<{
+    description: string;
+    quantity: number;
+    amount: number;
+  }>;
+  createdAt: string;
 }
 
 interface InvoiceListProps {
@@ -34,6 +44,22 @@ export default function InvoiceList({
 }: InvoiceListProps) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
+
+  const handleDownload = (invoice: Invoice) => {
+    try {
+      const player = players.find(p => p.id === invoice.playerId);
+      if (!player) {
+        toast.error('Player information not found');
+        return;
+      }
+
+      const doc = generateInvoicePDF(invoice, player);
+      doc.save(`invoice-${invoice.invoiceNumber}.pdf`);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate invoice PDF');
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
@@ -122,18 +148,24 @@ export default function InvoiceList({
                       <button
                         onClick={() => onEdit(invoice)}
                         className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        title="Edit Invoice"
                       >
                         <Edit className="w-5 h-5" />
                       </button>
                       <button
                         onClick={() => onDelete(invoice)}
                         className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                        title="Delete Invoice"
                       >
                         <Trash2 className="w-5 h-5" />
                       </button>
                     </>
                   )}
-                  <button className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300">
+                  <button
+                    onClick={() => handleDownload(invoice)}
+                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+                    title="Download Invoice"
+                  >
                     <Download className="w-5 h-5" />
                   </button>
                 </div>
